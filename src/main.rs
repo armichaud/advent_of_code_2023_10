@@ -11,16 +11,29 @@ enum Direction {
     Right,
 }
 
+const START: char = 'S';
+const HORIZONTAL_PIPE: char = '-';
+const VERTICAL_PIPE: char = '|';
+const L_PIPE: char = 'L';
+const J_PIPE: char = 'J';
+const SEVEN_PIPE: char = '7';
+const F_PIPE: char = 'F';
+
+const TOP_CONNECTED_PIPES: [char; 3] = [VERTICAL_PIPE, SEVEN_PIPE, F_PIPE];
+const BOTTOM_CONNECTED_PIPES: [char; 3] = [VERTICAL_PIPE, L_PIPE, J_PIPE];
+const RIGHT_CONNECTED_PIPES: [char; 3] = [HORIZONTAL_PIPE, J_PIPE, SEVEN_PIPE];
+const LEFT_CONNECTED_PIPES: [char; 3] = [HORIZONTAL_PIPE, L_PIPE, F_PIPE];
+
 impl Direction {
     fn from_tuple(tuple: Tuple) -> Option<Direction> {
         let (c, previous) = tuple;
         match c {
-            '-' => Some(previous),
-            '|' => Some(previous),
-            'L' => Some(if previous == Direction::Down {Direction::Right} else {Direction::Up}),
-            'J' => Some(if previous == Direction::Down {Direction::Left} else {Direction::Up}),
-            '7' => Some(if previous == Direction::Up {Direction::Left} else {Direction::Down}),
-            'F' => Some(if previous == Direction::Up {Direction::Right} else {Direction::Down}),
+            HORIZONTAL_PIPE => Some(previous),
+            VERTICAL_PIPE => Some(previous),
+            L_PIPE => Some(if previous == Direction::Down {Direction::Right} else {Direction::Up}),
+            J_PIPE => Some(if previous == Direction::Down {Direction::Left} else {Direction::Up}),
+            SEVEN_PIPE => Some(if previous == Direction::Up {Direction::Left} else {Direction::Down}),
+            F_PIPE => Some(if previous == Direction::Up {Direction::Right} else {Direction::Down}),
             _ => None,
         }
     }
@@ -54,7 +67,7 @@ fn solution(filename: &str) -> i32 {
     let visited = DMatrix::from_element(matrix.nrows(), matrix.ncols(), 0);
     let stack = Vec::<Tuple>::new();
     let start = find_start(matrix).unwrap();
-    0
+    0 
 }
 
 fn main() {

@@ -17,6 +17,7 @@ const LEFT_CONNECTED_PIPES: [char; 3] = [HORIZONTAL_PIPE, L_PIPE, F_PIPE];
 const UNVISITED: i32 = 0;
 const ENCLOSED: i32 = -1;
 const OUTSIDE: i32 = -2;
+const UNDER_REVIEW: i32 = -3;
 
 #[derive(Debug, Clone)]
 struct Pipe { 
@@ -180,25 +181,36 @@ fn visit(visited: &mut DMatrix<i32>, current: (usize, usize)) -> DMatrix<i32> {
         return visited.to_owned();
     }
 
-    *visited = visit(&mut visited, above);
-    if visited[above] == OUTSIDE {
-        visited[current] = OUTSIDE;
-        return visited.to_owned();
+    visited[current] = UNDER_REVIEW;
+
+    if visited[above] != UNDER_REVIEW { 
+        *visited = visit(&mut visited, above);
+        if visited[above] == OUTSIDE {
+            visited[current] = OUTSIDE;
+            return visited.to_owned();
+        }
     }
-    *visited = visit(&mut visited, below);
-    if visited[below] == OUTSIDE {
-        visited[current] = OUTSIDE;
-        return visited.to_owned();
+
+    if visited[below] != UNDER_REVIEW { 
+        *visited = visit(&mut visited, below);
+        if visited[below] == OUTSIDE {
+            visited[current] = OUTSIDE;
+            return visited.to_owned();
+        }
     }
-    *visited = visit(&mut visited, left);
-    if visited[left] == OUTSIDE {
-        visited[current] = OUTSIDE;
-        return visited.to_owned();
+    if visited[left] != UNDER_REVIEW { 
+        *visited = visit(&mut visited, left);
+        if visited[left] == OUTSIDE {
+            visited[current] = OUTSIDE;
+            return visited.to_owned();
+        }
     }
-    *visited = visit(&mut visited, right);
-    if visited[right] == OUTSIDE {
-        visited[current] = OUTSIDE;
-        return visited.to_owned();
+    if visited[right] != UNDER_REVIEW {
+        *visited = visit(&mut visited, right);
+        if visited[right] == OUTSIDE {
+            visited[current] = OUTSIDE;
+            return visited.to_owned();
+        }
     }
 
     visited[current] = ENCLOSED;
@@ -213,7 +225,6 @@ fn tiles_enclosed(filepath: &str) -> i32 {
     visited[start] = 1; // traversal does not touch starting point
     let starting_points: Vec<Pipe> = get_paths(&matrix, start);
     visited = traverse(&matrix, &mut visited, starting_points.first().unwrap().clone());
-    println!("{:?}", visited);
     visited = visit_all(&mut visited);
     visited.iter().filter(|&x| *x == ENCLOSED).count() as i32
  }
@@ -222,7 +233,7 @@ fn main() {
     assert_eq!(farthest_pipe("example.txt"), 8);
     assert_eq!(farthest_pipe("input.txt"), 7107);
     assert_eq!(tiles_enclosed("example_2.txt"), 4);
-    //assert_eq!(tiles_enclosed("example_3.txt"), 8);
-    //assert_eq!(tiles_enclosed("example_4.txt"), 10);
-    //assert_eq!(tiles_enclosed("input.txt"), 0);
+    assert_eq!(tiles_enclosed("example_3.txt"), 8);
+    assert_eq!(tiles_enclosed("example_4.txt"), 10);
+    assert_eq!(tiles_enclosed("input.txt"), 0);
 }

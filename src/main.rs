@@ -129,7 +129,7 @@ fn traverse(matrix: &DMatrix<char>, visited: &mut DMatrix<i32>, start: Pipe) -> 
     visited.to_owned()
 }
 
-fn solution(filename: &str) -> i32 {
+fn farthest_pipe(filename: &str) -> i32 {
     let matrix = get_matrix(filename);
     let mut visited = DMatrix::from_element(matrix.nrows(), matrix.ncols(), 0);
     let start = find_start(&matrix).unwrap();
@@ -140,7 +140,13 @@ fn solution(filename: &str) -> i32 {
     visited.iter().max().unwrap().to_owned()
 }
 
+fn tiles_enclosed(filepath: &str) -> i32 { 0 }
+
 fn main() {
-    assert_eq!(solution("example.txt"), 8);
-    assert_eq!(solution("input.txt"), 7107);
+    assert_eq!(farthest_pipe("example.txt"), 8);
+    assert_eq!(farthest_pipe("input.txt"), 7107);
+    assert_eq!(tiles_enclosed("example_2.txt"), 4);
+    assert_eq!(tiles_enclosed("example_3.txt"), 8);
+    assert_eq!(tiles_enclosed("example_4.txt"), 10);
+    assert_eq!(tiles_enclosed("input.txt"), 0);
 }

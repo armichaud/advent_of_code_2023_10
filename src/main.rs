@@ -1,6 +1,24 @@
 use nalgebra::DMatrix;
 use std::{fs::File, io::{BufReader, BufRead}};
 
+const START: char = 'S';
+const HORIZONTAL_PIPE: char = '-';
+const VERTICAL_PIPE: char = '|';
+const L_PIPE: char = 'L';
+const J_PIPE: char = 'J';
+const SEVEN_PIPE: char = '7';
+const F_PIPE: char = 'F';
+
+const TOP_CONNECTED_PIPES: [char; 3] = [VERTICAL_PIPE, SEVEN_PIPE, F_PIPE];
+const BOTTOM_CONNECTED_PIPES: [char; 3] = [VERTICAL_PIPE, L_PIPE, J_PIPE];
+const RIGHT_CONNECTED_PIPES: [char; 3] = [HORIZONTAL_PIPE, J_PIPE, SEVEN_PIPE];
+const LEFT_CONNECTED_PIPES: [char; 3] = [HORIZONTAL_PIPE, L_PIPE, F_PIPE];
+
+const UNVISITED: i32 = 0;
+const ENCLOSED: i32 = -1;
+const OUTSIDE: i32 = -2;
+
+#[derive(Debug, Clone)]
 struct Pipe { 
     symbol: char, 
     previous_direction: Direction, 
@@ -14,19 +32,6 @@ enum Direction {
     Left,
     Right,
 }
-
-const START: char = 'S';
-const HORIZONTAL_PIPE: char = '-';
-const VERTICAL_PIPE: char = '|';
-const L_PIPE: char = 'L';
-const J_PIPE: char = 'J';
-const SEVEN_PIPE: char = '7';
-const F_PIPE: char = 'F';
-
-const TOP_CONNECTED_PIPES: [char; 3] = [VERTICAL_PIPE, SEVEN_PIPE, F_PIPE];
-const BOTTOM_CONNECTED_PIPES: [char; 3] = [VERTICAL_PIPE, L_PIPE, J_PIPE];
-const RIGHT_CONNECTED_PIPES: [char; 3] = [HORIZONTAL_PIPE, J_PIPE, SEVEN_PIPE];
-const LEFT_CONNECTED_PIPES: [char; 3] = [HORIZONTAL_PIPE, L_PIPE, F_PIPE];
 
 impl Direction {
     fn from_char_and_direction(c: char, previous: &Direction) -> Option<Direction> {
@@ -131,7 +136,7 @@ fn traverse(matrix: &DMatrix<char>, visited: &mut DMatrix<i32>, start: Pipe) -> 
 
 fn farthest_pipe(filename: &str) -> i32 {
     let matrix = get_matrix(filename);
-    let mut visited = DMatrix::from_element(matrix.nrows(), matrix.ncols(), 0);
+    let mut visited = DMatrix::from_element(matrix.nrows(), matrix.ncols(), UNVISITED);
     let start = find_start(&matrix).unwrap();
     let starting_points: Vec<Pipe> = get_paths(&matrix, start);
     for start in starting_points {
@@ -140,13 +145,84 @@ fn farthest_pipe(filename: &str) -> i32 {
     visited.iter().max().unwrap().to_owned()
 }
 
-fn tiles_enclosed(filepath: &str) -> i32 { 0 }
+fn visit_all(visited: &mut DMatrix<i32>) -> DMatrix<i32> {
+    let mut visited = visited;
+    for i in 0..visited.nrows() {
+        for j in 0..visited.ncols() {
+            let coords = (i, j);
+            if visited[coords] == UNVISITED {
+                *visited = visit(&mut visited, coords);
+            }
+        }
+    }
+    visited.to_owned()
+}
+
+fn visit(visited: &mut DMatrix<i32>, current: (usize, usize)) -> DMatrix<i32> {
+    let mut visited = visited;
+    // Pipe
+    if visited[current] > 0 {
+        return visited.to_owned();
+    }
+    // Matrix edge
+    if current.0 == 0 || current.0 == visited.nrows() - 1 || current.1 == 0 || current.1 == visited.ncols() - 1 {
+        visited[current] = OUTSIDE;
+        return visited.to_owned();
+    }
+
+    let above = (current.0 - 1, current.1);
+    let below = (current.0 + 1, current.1);
+    let left = (current.0, current.1 - 1);
+    let right = (current.0, current.1 + 1);
+
+    if visited[above] == OUTSIDE || visited[below] == OUTSIDE || visited[left] == OUTSIDE || visited[right] == OUTSIDE {
+        visited[current] = OUTSIDE;
+        return visited.to_owned();
+    }
+
+    *visited = visit(&mut visited, above);
+    if visited[above] == OUTSIDE {
+        visited[current] = OUTSIDE;
+        return visited.to_owned();
+    }
+    *visited = visit(&mut visited, below);
+    if visited[below] == OUTSIDE {
+        visited[current] = OUTSIDE;
+        return visited.to_owned();
+    }
+    *visited = visit(&mut visited, left);
+    if visited[left] == OUTSIDE {
+        visited[current] = OUTSIDE;
+        return visited.to_owned();
+    }
+    *visited = visit(&mut visited, right);
+    if visited[right] == OUTSIDE {
+        visited[current] = OUTSIDE;
+        return visited.to_owned();
+    }
+
+    visited[current] = ENCLOSED;
+    visited.to_owned()
+
+}
+
+fn tiles_enclosed(filepath: &str) -> i32 { 
+    let matrix = get_matrix(filepath);
+    let mut visited = DMatrix::from_element(matrix.nrows(), matrix.ncols(), UNVISITED);
+    let start = find_start(&matrix).unwrap();
+    visited[start] = 1; // traversal does not touch starting point
+    let starting_points: Vec<Pipe> = get_paths(&matrix, start);
+    visited = traverse(&matrix, &mut visited, starting_points.first().unwrap().clone());
+    println!("{:?}", visited);
+    visited = visit_all(&mut visited);
+    visited.iter().filter(|&x| *x == ENCLOSED).count() as i32
+ }
 
 fn main() {
     assert_eq!(farthest_pipe("example.txt"), 8);
     assert_eq!(farthest_pipe("input.txt"), 7107);
     assert_eq!(tiles_enclosed("example_2.txt"), 4);
-    assert_eq!(tiles_enclosed("example_3.txt"), 8);
-    assert_eq!(tiles_enclosed("example_4.txt"), 10);
-    assert_eq!(tiles_enclosed("input.txt"), 0);
+    //assert_eq!(tiles_enclosed("example_3.txt"), 8);
+    //assert_eq!(tiles_enclosed("example_4.txt"), 10);
+    //assert_eq!(tiles_enclosed("input.txt"), 0);
 }

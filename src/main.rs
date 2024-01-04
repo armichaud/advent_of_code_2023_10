@@ -78,6 +78,15 @@ impl Direction {
             _ => inward_direction,
         }
     }
+
+    fn opposite(&self) -> Direction {
+        match self {
+            Direction::Up => Direction::Down,
+            Direction::Down => Direction::Up,
+            Direction::Left => Direction::Right,
+            Direction::Right => Direction::Left,
+        }
+    }
 }
 
 fn get_matrix(filename: &str) -> DMatrix<char> {
@@ -167,12 +176,14 @@ fn traverse(matrix: &DMatrix<char>, visited: &mut DMatrix<i32>, start: Pipe) -> 
     visited.to_owned()
 }
 
-fn visit(visited: &mut DMatrix<i32>, current: (usize, usize)) {
+fn visit(visited: &mut DMatrix<i32>, current: (usize, usize)) -> Result<(), ()> {
     let mut stack = Vec::<(usize, usize)>::from([current]);
     while stack.len() > 0 {
         let target = stack.pop().unwrap();
         visited[target] = ENCLOSED;
-        // This will never happen on the edges, so all neighbors are valid
+        if target.0 == 0 || target.0 == visited.nrows() - 1 || target.1 == 0 || target.1 == visited.ncols() - 1 {
+            return Err(());
+        }
         let neighbors = Vec::<(usize, usize)>::from([
             (target.0 - 1, target.1),
             (target.0 + 1, target.1),
@@ -187,6 +198,7 @@ fn visit(visited: &mut DMatrix<i32>, current: (usize, usize)) {
             }
         }
     }
+    Ok(())
 }
 
 fn farthest_pipe(filename: &str) -> i32 {
@@ -209,11 +221,18 @@ fn tiles_enclosed(filepath: &str) -> i32 {
     let mut visited = traverse(&matrix, &mut DMatrix::from_element(matrix.nrows(), matrix.ncols(), UNVISITED), first_step.clone());
     let end = visited.iter().max().unwrap().to_owned();
     visited[start] = end; // traversal does not touch starting point
-    ride_rails(&mut visited, first_step.coords, end, first_step.previous_direction, reverse_first_step.previous_direction);
+    visited = if let Ok(fully_enclosed) = ride_rails(&visited, first_step.coords, end, first_step.previous_direction.clone(), reverse_first_step.previous_direction.clone()) {
+        fully_enclosed
+    } else if let Ok(fully_enclosed) = ride_rails(&visited, first_step.coords, end, first_step.previous_direction, reverse_first_step.previous_direction.opposite()) {
+        fully_enclosed
+    } else {
+        return 0;
+    };
     visited.iter().filter(|&x| *x == ENCLOSED).count() as i32
  }
 
-fn ride_rails(visited: &mut DMatrix<i32>, mut current: (usize, usize), end: i32, mut moving_direction: Direction, mut inward_direction: Direction) {
+fn ride_rails(visited: &DMatrix<i32>, mut current: (usize, usize), end: i32, mut moving_direction: Direction, mut inward_direction: Direction) -> Result<DMatrix<i32>, ()> {
+    let mut visited = visited.clone();
     while visited[current] != end {
         // println!("current {}, direction {:?}, inward {:?} visited {}", visited[current], moving_direction, inward_direction, visited);
         let inner = match inward_direction {
@@ -223,7 +242,9 @@ fn ride_rails(visited: &mut DMatrix<i32>, mut current: (usize, usize), end: i32,
             Direction::Right => (current.0, current.1 + 1),
         };
         if visited[inner] == UNVISITED {
-            visit(visited, inner);
+            if let Err(_) = visit(&mut visited, inner) {
+                return Err(())
+            }
         }
         let next_cell = visited[current] + 1;
         let mut neighbors = Vec::<(usize, usize)>::new();
@@ -249,7 +270,8 @@ fn ride_rails(visited: &mut DMatrix<i32>, mut current: (usize, usize), end: i32,
             }
         }
         
-    }   
+    }
+    Ok(visited)
 }
 
 fn main() {
@@ -258,5 +280,5 @@ fn main() {
     assert_eq!(tiles_enclosed("example_2.txt"), 4);
     assert_eq!(tiles_enclosed("example_3.txt"), 8);
     assert_eq!(tiles_enclosed("example_4.txt"), 10);
-    assert_eq!(tiles_enclosed("input.txt"), 0);
+    assert_eq!(tiles_enclosed("input.txt"), 275);
 }

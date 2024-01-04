@@ -208,7 +208,7 @@ fn visit(visited: &mut DMatrix<i32>, current: (usize, usize)) -> DMatrix<i32> {
 
 }
 
-fn visited(matrix: DMatrix<char>, start: (usize, usize), starting_points: Vec<Pipe>) -> DMatrix<i32> {
+fn get_visited(matrix: DMatrix<char>, start: (usize, usize), starting_points: Vec<Pipe>) -> DMatrix<i32> {
     let mut visited = DMatrix::from_element(matrix.nrows(), matrix.ncols(), UNVISITED);
     for start in starting_points {
         visited = traverse(&matrix, &mut visited, start);
@@ -220,16 +220,15 @@ fn farthest_pipe(filename: &str) -> i32 {
     let matrix = get_matrix(filename);
     let start = find_start(&matrix).unwrap();
     let starting_points: Vec<Pipe> = get_paths(&matrix, start);
-    visited(matrix, start, starting_points).iter().max().unwrap().to_owned()
+    get_visited(matrix, start, starting_points).iter().max().unwrap().to_owned()
 }
 
 fn tiles_enclosed(filepath: &str) -> i32 { 
     let matrix = get_matrix(filepath);
     let mut matrix_with_just_pipes = matrix.clone();
     let start = find_start(&matrix).unwrap();
-    let starting_points: Vec<Pipe> = get_paths(&matrix, start);
-    let saved_start = starting_points.first().unwrap().clone();
-    let mut visited = visited(matrix, start, starting_points);
+    let starting_points: Vec<Pipe> = get_paths(&matrix, start); 
+    let mut visited = get_visited(matrix, start, starting_points);
     for i in 0..visited.nrows() {
         for j in 0..visited.ncols() {
             if visited[(i, j)] == UNVISITED && !(i == start.0 && j == start.1) { 
@@ -239,7 +238,6 @@ fn tiles_enclosed(filepath: &str) -> i32 {
     }
     let matrix = matrix_with_just_pipes;
     visited[start] = 1; // traversal does not touch starting point
-    visited = traverse(&matrix, &mut visited, saved_start);
     visited = visit_all(&mut visited);
     visited.iter().filter(|&x| *x == ENCLOSED).count() as i32
  }

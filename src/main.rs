@@ -228,6 +228,7 @@ fn tiles_enclosed(filepath: &str) -> i32 {
     } else {
         return 0;
     };
+    //println!("{}", visited);
     visited.iter().filter(|&x| *x == ENCLOSED).count() as i32
  }
 

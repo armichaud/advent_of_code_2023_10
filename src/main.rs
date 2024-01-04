@@ -8,6 +8,7 @@ const L_PIPE: char = 'L';
 const J_PIPE: char = 'J';
 const SEVEN_PIPE: char = '7';
 const F_PIPE: char = 'F';
+const NOT_PIPE: char = '.';
 
 const TOP_CONNECTED_PIPES: [char; 3] = [VERTICAL_PIPE, SEVEN_PIPE, F_PIPE];
 const BOTTOM_CONNECTED_PIPES: [char; 3] = [VERTICAL_PIPE, L_PIPE, J_PIPE];
@@ -135,17 +136,6 @@ fn traverse(matrix: &DMatrix<char>, visited: &mut DMatrix<i32>, start: Pipe) -> 
     visited.to_owned()
 }
 
-fn farthest_pipe(filename: &str) -> i32 {
-    let matrix = get_matrix(filename);
-    let mut visited = DMatrix::from_element(matrix.nrows(), matrix.ncols(), UNVISITED);
-    let start = find_start(&matrix).unwrap();
-    let starting_points: Vec<Pipe> = get_paths(&matrix, start);
-    for start in starting_points {
-        visited = traverse(&matrix, &mut visited, start);
-    }
-    visited.iter().max().unwrap().to_owned()
-}
-
 fn visit_all(visited: &mut DMatrix<i32>) -> DMatrix<i32> {
     let mut visited = visited;
     for i in 0..visited.nrows() {
@@ -218,8 +208,35 @@ fn visit(visited: &mut DMatrix<i32>, current: (usize, usize)) -> DMatrix<i32> {
 
 }
 
+fn visited(matrix: DMatrix<char>, start: (usize, usize)) -> DMatrix<i32> {
+    let mut visited = DMatrix::from_element(matrix.nrows(), matrix.ncols(), UNVISITED);
+    let starting_points: Vec<Pipe> = get_paths(&matrix, start);
+    for start in starting_points {
+        visited = traverse(&matrix, &mut visited, start);
+    }
+    visited
+} 
+
+fn farthest_pipe(filename: &str) -> i32 {
+    let matrix = get_matrix(filename);
+    let start = find_start(&matrix).unwrap();
+    visited(matrix, start).iter().max().unwrap().to_owned()
+}
+
 fn tiles_enclosed(filepath: &str) -> i32 { 
     let matrix = get_matrix(filepath);
+    let mut matrix_with_just_pipes = matrix.clone();
+    let start = find_start(&matrix).unwrap();
+    let visited_pipes = visited(matrix, start);
+
+    for i in 0..visited_pipes.nrows() {
+        for j in 0..visited_pipes.ncols() {
+            if visited_pipes[(i, j)] == UNVISITED && !(i == start.0 && j == start.1) { 
+                matrix_with_just_pipes[(i, j)] = NOT_PIPE 
+            };
+        }
+    }
+    let matrix = matrix_with_just_pipes;
     let mut visited = DMatrix::from_element(matrix.nrows(), matrix.ncols(), UNVISITED);
     let start = find_start(&matrix).unwrap();
     visited[start] = 1; // traversal does not touch starting point

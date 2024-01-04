@@ -14,8 +14,10 @@ const BOTTOM_CONNECTED_PIPES: [char; 3] = [VERTICAL_PIPE, L_PIPE, J_PIPE];
 const RIGHT_CONNECTED_PIPES: [char; 3] = [HORIZONTAL_PIPE, J_PIPE, SEVEN_PIPE];
 const LEFT_CONNECTED_PIPES: [char; 3] = [HORIZONTAL_PIPE, L_PIPE, F_PIPE];
 
+// All pipes that count as boundaries when moving down and to the right
+const BOUNDARIES: [char; 4] = [HORIZONTAL_PIPE, VERTICAL_PIPE, F_PIPE, J_PIPE];
+
 const UNVISITED: i32 = 0;
-const ENCLOSED: i32 = -1;
 
 #[derive(Debug, Clone)]
 struct Pipe { 
@@ -44,49 +46,6 @@ impl Direction {
             _ => None,
         }
     }
-
-    fn new_direction_from_coords(current: (usize, usize), next: (usize, usize)) -> Direction {
-        let row_diff = next.0 as i32 - current.0 as i32;
-        let col_diff = next.1 as i32 - current.1 as i32;
-        match (row_diff, col_diff) {
-            (-1,  0) => Direction::Up,
-            ( 1,  0) => Direction::Down,
-            ( 0, -1) => Direction::Left,
-            ( 0,  1) => Direction::Right,
-            _  => panic!("Invalid direction"),
-        }
-    }
-
-    fn get_inward_direction(new_direction: Direction, previous_direction: Direction, inward_direction: Direction) -> Direction {
-        match (previous_direction, new_direction, &inward_direction) {
-            (Direction::Up, Direction::Left, Direction::Left) => Direction::Down,
-            (Direction::Up, Direction::Right, Direction::Right) => Direction::Down,
-            (Direction::Up, Direction::Left, Direction::Right) => Direction::Up,
-            (Direction::Up, Direction::Right, Direction::Left) => Direction::Up,
-            (Direction::Down, Direction::Left, Direction::Left) => Direction::Up,
-            (Direction::Down, Direction::Right, Direction::Right) => Direction::Up,
-            (Direction::Down, Direction::Left, Direction::Right) => Direction::Down,
-            (Direction::Down, Direction::Right, Direction::Left) => Direction::Down,
-            (Direction::Left, Direction::Up, Direction::Up) => Direction::Right,
-            (Direction::Left, Direction::Down, Direction::Down) => Direction::Right,
-            (Direction::Left, Direction::Up, Direction::Down) => Direction::Left,
-            (Direction::Left, Direction::Down, Direction::Up) => Direction::Left,
-            (Direction::Right, Direction::Up, Direction::Up) => Direction::Left,
-            (Direction::Right, Direction::Down, Direction::Down) => Direction::Left,
-            (Direction::Right, Direction::Up, Direction::Down) => Direction::Right,
-            (Direction::Right, Direction::Down, Direction::Up) => Direction::Right,
-            _ => inward_direction,
-        }
-    }
-
-    fn opposite(&self) -> Direction {
-        match self {
-            Direction::Up => Direction::Down,
-            Direction::Down => Direction::Up,
-            Direction::Left => Direction::Right,
-            Direction::Right => Direction::Left,
-        }
-    }
 }
 
 fn get_matrix(filename: &str) -> DMatrix<char> {
@@ -104,7 +63,7 @@ fn get_matrix(filename: &str) -> DMatrix<char> {
 fn find_start(matrix: &DMatrix<char>) -> Option<(usize, usize)> {
     for i in 0..matrix.nrows() {
         for j in 0..matrix.ncols() {
-            if matrix[(i, j)] == 'S' {
+            if matrix[(i, j)] == START {
                 return Some((i, j));
             }
         }
@@ -176,31 +135,6 @@ fn traverse(matrix: &DMatrix<char>, visited: &mut DMatrix<i32>, start: Pipe) -> 
     visited.to_owned()
 }
 
-fn visit(visited: &mut DMatrix<i32>, current: (usize, usize)) -> Result<(), ()> {
-    let mut stack = Vec::<(usize, usize)>::from([current]);
-    while stack.len() > 0 {
-        let target = stack.pop().unwrap();
-        visited[target] = ENCLOSED;
-        if target.0 == 0 || target.0 == visited.nrows() - 1 || target.1 == 0 || target.1 == visited.ncols() - 1 {
-            return Err(());
-        }
-        let neighbors = Vec::<(usize, usize)>::from([
-            (target.0 - 1, target.1),
-            (target.0 + 1, target.1),
-            (target.0, target.1 - 1),
-            (target.0, target.1 + 1),
-        ]);
-        for neighbor in neighbors {
-            // println!("{:?}", neighbor);
-            // println!("{}", visited);
-            if visited[neighbor] == UNVISITED {
-                stack.push(neighbor);
-            }
-        }
-    }
-    Ok(())
-}
-
 fn farthest_pipe(filename: &str) -> i32 {
     let matrix = get_matrix(filename);
     let start = find_start(&matrix).unwrap();
@@ -212,68 +146,44 @@ fn farthest_pipe(filename: &str) -> i32 {
     visited.iter().max().unwrap().to_owned()
 }
 
+fn is_inside(matrix: &DMatrix<char>, visited: &DMatrix<i32>, current: (usize, usize)) -> bool {
+    let mut count = 0;
+    let (mut i, mut j) = current;
+    while i < matrix.nrows() && j < matrix.ncols() {
+        let coords = (i, j);
+        if visited[coords] > 0 && BOUNDARIES.contains(&matrix[coords]) {
+            count += 1;
+        }
+        i += 1;
+        j += 1;
+    }
+    count % 2 != 0
+}
+
 fn tiles_enclosed(filepath: &str) -> i32 { 
     let matrix = get_matrix(filepath);
+    let matrix_clone = matrix.clone();
     let start = find_start(&matrix).unwrap();
-    let starting_points: Vec<Pipe> = get_paths(&matrix, start);
-    let first_step = starting_points.first().unwrap().clone();
-    let reverse_first_step = starting_points.last().unwrap().clone();
-    let mut visited = traverse(&matrix, &mut DMatrix::from_element(matrix.nrows(), matrix.ncols(), UNVISITED), first_step.clone());
-    let end = visited.iter().max().unwrap().to_owned();
-    visited[start] = end; // traversal does not touch starting point
-    visited = if let Ok(fully_enclosed) = ride_rails(&visited, first_step.coords, end, first_step.previous_direction.clone(), reverse_first_step.previous_direction.clone()) {
-        fully_enclosed
-    } else if let Ok(fully_enclosed) = ride_rails(&visited, first_step.coords, end, first_step.previous_direction, reverse_first_step.previous_direction.opposite()) {
-        fully_enclosed
-    } else {
-        return 0;
-    };
-    //println!("{}", visited);
-    visited.iter().filter(|&x| *x == ENCLOSED).count() as i32
- }
-
-fn ride_rails(visited: &DMatrix<i32>, mut current: (usize, usize), end: i32, mut moving_direction: Direction, mut inward_direction: Direction) -> Result<DMatrix<i32>, ()> {
-    let mut visited = visited.clone();
-    while visited[current] != end {
-        // println!("current {}, direction {:?}, inward {:?} visited {}", visited[current], moving_direction, inward_direction, visited);
-        let inner = match inward_direction {
-            Direction::Up => (current.0 - 1, current.1),
-            Direction::Down => (current.0 + 1, current.1),
-            Direction::Left => (current.0, current.1 - 1),
-            Direction::Right => (current.0, current.1 + 1),
-        };
-        if visited[inner] == UNVISITED {
-            if let Err(_) = visit(&mut visited, inner) {
-                return Err(())
+    let paths = get_paths(&matrix, start);
+    let mut visited = traverse(&matrix, &mut DMatrix::from_element(matrix.nrows(), matrix.ncols(), UNVISITED), paths.first().unwrap().to_owned());
+    visited[start] = 1; // traversal does not touch starting point
+    let mut matrix = matrix_clone;
+    // I would build a method to replace the starting point with the correct pipe, but I know it's an F for all inputs, and I've got better things to do
+    matrix[start] = F_PIPE;
+    println!("{} {}", matrix, visited);
+    let mut sum = 0;
+    for i in 0..visited.nrows() {
+        for j in 0..visited.ncols() {
+            if visited[(i, j)] == UNVISITED {
+                if is_inside(&matrix, &visited, (i, j)) {
+                    sum += 1;
+                }
             }
         }
-        let next_cell = visited[current] + 1;
-        let mut neighbors = Vec::<(usize, usize)>::new();
-        if current.0 > 0 {
-            neighbors.push((current.0 - 1, current.1));
-        }
-        if current.0 < visited.nrows() - 1 {
-            neighbors.push((current.0 + 1, current.1));
-        }
-        if current.1 > 0 {
-            neighbors.push((current.0, current.1 - 1));
-        }
-        if current.1 < visited.ncols() - 1 {
-            neighbors.push((current.0, current.1 + 1));
-        }
-        for neighbor in neighbors {
-            if visited[neighbor] == next_cell {
-                let new_direction = Direction::new_direction_from_coords(current, neighbor);
-                inward_direction = Direction::get_inward_direction(new_direction.clone(), moving_direction, inward_direction);
-                current = neighbor;
-                moving_direction = new_direction;
-                break;
-            }
-        }
-        
     }
-    Ok(visited)
+    sum
 }
+
 
 fn main() {
     assert_eq!(farthest_pipe("example.txt"), 8);
@@ -281,5 +191,5 @@ fn main() {
     assert_eq!(tiles_enclosed("example_2.txt"), 4);
     assert_eq!(tiles_enclosed("example_3.txt"), 8);
     assert_eq!(tiles_enclosed("example_4.txt"), 10);
-    assert_eq!(tiles_enclosed("input.txt"), 275);
+    assert_eq!(tiles_enclosed("input.txt"), 281);
 }

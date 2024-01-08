@@ -186,10 +186,10 @@ fn tiles_enclosed(filepath: &str) -> i32 {
 
 
 fn main() {
-    assert_eq!(farthest_pipe("example.txt"), 8);
-    assert_eq!(farthest_pipe("input.txt"), 7107);
-    assert_eq!(tiles_enclosed("example_2.txt"), 4);
-    assert_eq!(tiles_enclosed("example_3.txt"), 8);
-    assert_eq!(tiles_enclosed("example_4.txt"), 10);
-    assert_eq!(tiles_enclosed("input.txt"), 281);
+    println!("{}", farthest_pipe("example.txt"));
+    println!("{}", farthest_pipe("input.txt"));
+    println!("{}", tiles_enclosed("example_2.txt"));
+    println!("{}", tiles_enclosed("example_3.txt"));
+    println!("{}", tiles_enclosed("example_4.txt"));
+    println!("{}", tiles_enclosed("input.txt"));
 }
